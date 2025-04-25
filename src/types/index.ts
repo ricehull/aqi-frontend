@@ -1,7 +1,7 @@
 export interface User {
   username: string
   password: string
-  userType: 'enterprise' | 'individual'
+  userType: string
 }
 
 export interface LoginResponse {
@@ -9,8 +9,13 @@ export interface LoginResponse {
   user: {
     id: number
     username: string
-    userType: 'enterprise' | 'individual'
+    userType: string
   }
+}
+
+export interface City {
+  site: string
+  name: string
 }
 
 export interface AQIData {

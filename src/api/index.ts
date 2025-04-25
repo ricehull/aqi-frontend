@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { User, LoginResponse, AQIData } from '../types'
+import type { User, LoginResponse, AQIData, City } from '../types'
 
 const api = axios.create({
   baseURL: 'http://localhost:8000/api',
@@ -15,30 +15,23 @@ api.interceptors.request.use(config => {
   return config
 })
 
+export interface LoginResponseWithCities extends LoginResponse {
+  supported_cities: City[]
+  default_city_aqi?: AQIData
+}
+
 export const login = (user: User) => {
-  return api.post<LoginResponse>('/users/login/', user)
+  return api.post<LoginResponseWithCities>('/users/login/', user)
 }
 
 export const getAQIData = () => {
-  return api.get<{
-    site: string
-    station: string
-    date: string
-    name: string
-    aqi: number
-    aqi_level: number
-    hint_image?: string
-  }>('/aqi/')
+  return api.get<{ supported_cities: City[], default_city_aqi: AQIData }>('/aqi/')
 }
 
 export const getAQIDataByLocation = (site: string) => {
-  return api.get<{
-    site: string
-    station: string
-    date: string
-    name: string
-    aqi: number
-    aqi_level: number
-    hint_image?: string
-  }>(`/aqi/by_site/?site=${site}`)
+  return api.get<AQIData>(`/aqi/by_site/?site=${site}`)
+}
+
+export const getCities = () => {
+  return api.get<City[]>('/aqi/cities/')
 } 

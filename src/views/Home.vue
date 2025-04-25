@@ -1,59 +1,93 @@
 <template>
   <div class="home">
-    <h2>空气质量监测系统</h2>
+    <h2>Air Quality Forecast System</h2>
     <div class="content">
-      <div v-if="loading">加载中...</div>
+      <div v-if="loading">Loading...</div>
       <div v-else-if="error">{{ error }}</div>
       <template v-else>
-        <!-- 个人用户页面 -->
-        <div v-if="userStore.user?.userType === 'individual'" class="personal-view">
-          <div class="welcome">
-            <h3>欢迎回来，{{ userStore.user?.username }}</h3>
-          </div>
-          <div v-for="item in aqiData" :key="item.site" class="aqi-item">
-            <h3>{{ item.name }}</h3>
-            <div class="aqi-value" :class="getAQIClass(item.aqi)">
-              AQI: {{ item.aqi }}
-            </div>
-            <div class="health-tip">
-              <p>{{ getHealthTip(item.aqi_level) }}</p>
-              <img v-if="item.hint_image" :src="'data:image/jpeg;base64,' + item.hint_image" alt="健康提示图片" />
-            </div>
-          </div>
+        <div class="welcome" v-if="username">
+          <h3>Welcome back, {{ username }}</h3>
         </div>
         
-        <!-- 企业用户页面 -->
-        <div v-else class="enterprise-view">
-          <div v-for="item in aqiData" :key="item.site" class="aqi-item">
-            <h3>{{ item.name }}</h3>
-            <div class="aqi-value" :class="getAQIClass(item.aqi)">
-              AQI: {{ item.aqi }}
+        <!-- 城市选择器 -->
+        <div class="city-selector">
+          <label for="city-select">Select City:</label>
+          <select id="city-select" v-model="selectedCity" @change="handleCityChange">
+            <option v-for="city in cities" :key="city.site" :value="city">
+              {{ city.name }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="aqi-container">
+          <!-- 空气质量卡片 -->
+          <div v-if="aqiData" class="aqi-item">
+            <h3>{{ aqiData.name }}</h3>
+            <div class="aqi-value" :class="getAQIClass(aqiData.aqi)">
+              AQI: {{ aqiData.aqi }}
+            </div>
+            <div class="aqi-details">
+              <p><strong>Date:</strong> {{ formatDate(aqiData.date) }}</p>
             </div>
             <div class="health-tip">
-              <p>{{ getHealthTip(item.aqi_level) }}</p>
+              <p>{{ getHealthTip(aqiData.aqi_level) }}</p>
+              <!-- 只有在图片存在时才显示 -->
+              <div v-if="aqiData.hint_image" class="image-container">
+                <img :src="getImageSrc(aqiData.hint_image)" alt="Health Tip Image" />
+              </div>
             </div>
           </div>
         </div>
       </template>
-      <button @click="handleLogout">退出登录</button>
+      <button @click="handleLogout" class="logout-btn">Logout</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAQIStore } from '../store'
 import { useUserStore } from '../store'
+import type { City } from '../types'
 
 const router = useRouter()
 const aqiStore = useAQIStore()
 const userStore = useUserStore()
-const { aqiData, loading, error } = aqiStore
 
-onMounted(() => {
-  aqiStore.fetchAQIData()
+const selectedCity = ref<City | null>(null)
+const username = computed(() => userStore.user?.username || '')
+const aqiData = computed(() => aqiStore.aqiData)
+const cities = computed(() => aqiStore.cities)
+const loading = computed(() => aqiStore.loading)
+const error = computed(() => aqiStore.error)
+
+onMounted(async () => {
+  // 确保用户已登录
+  if (!userStore.token) {
+    router.push('/')
+    return
+  }
+  
+  // 获取 AQI 数据
+  await aqiStore.fetchCitiesAndDefaultAQI()
+  if (aqiStore.currentCity) {
+    selectedCity.value = aqiStore.currentCity
+  }
 })
+
+const handleCityChange = () => {
+  if (selectedCity.value) {
+    aqiStore.fetchAQIDataByCity(selectedCity.value.site)
+  }
+}
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US')
+}
 
 const getAQIClass = (aqi: number) => {
   if (aqi <= 50) return 'good'
@@ -65,15 +99,24 @@ const getAQIClass = (aqi: number) => {
 }
 
 const getHealthTip = (aqiLevel: number) => {
-  const tips = {
-    1: '空气质量优，适合户外活动',
-    2: '空气质量良，适合户外活动',
-    3: '轻度污染，敏感人群减少户外活动',
-    4: '中度污染，减少户外活动',
-    5: '重度污染，避免户外活动',
-    6: '严重污染，请待在室内'
+  const tips: Record<number, string> = {
+    1: 'Excellent air quality. Perfect for outdoor activities.',
+    2: 'Good air quality. Suitable for outdoor activities.',
+    3: 'Moderate pollution. Sensitive individuals should reduce outdoor activities.',
+    4: 'Unhealthy air quality. Reduce outdoor activities.',
+    5: 'Very unhealthy air quality. Avoid outdoor activities.',
+    6: 'Hazardous air quality. Stay indoors.'
   }
-  return tips[aqiLevel] || '未知空气质量'
+  return tips[aqiLevel] || 'Unknown air quality'
+}
+
+const getImageSrc = (base64String: string) => {
+  // 检查字符串是否已经包含 data:image 前缀
+  if (base64String.startsWith('data:image')) {
+    return base64String
+  }
+  // 否则添加正确的前缀
+  return `data:image/jpeg;base64,${base64String}`
 }
 
 const handleLogout = () => {
@@ -95,36 +138,72 @@ h2 {
 }
 
 .content {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .welcome {
+  width: 100%;
   margin-bottom: 30px;
   padding: 20px;
   background-color: #f5f7fa;
   border-radius: 5px;
+  text-align: center;
+}
+
+.city-selector {
+  margin: 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  min-width: 180px;
+  font-size: 16px;
+}
+
+.aqi-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .aqi-item {
+  width: 100%;
+  max-width: 500px;
   margin: 20px 0;
-  padding: 15px;
+  padding: 20px;
   border: 1px solid #ddd;
   border-radius: 5px;
-  text-align: left;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .aqi-item h3 {
   margin-top: 0;
   color: #333;
+  text-align: center;
 }
 
 .aqi-value {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: bold;
-  margin: 10px 0;
-  padding: 10px;
+  margin: 15px 0;
+  padding: 15px;
   border-radius: 5px;
   text-align: center;
+}
+
+.aqi-details {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
 }
 
 .good {
@@ -159,28 +238,34 @@ h2 {
 
 .health-tip {
   margin: 15px 0;
-  padding: 10px;
+  padding: 15px;
   background-color: #f5f7fa;
   border-radius: 5px;
+  text-align: center;
+}
+
+.image-container {
+  margin-top: 15px;
 }
 
 .health-tip img {
   max-width: 100%;
-  margin-top: 10px;
   border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-button {
-  margin-top: 20px;
-  padding: 8px 16px;
+.logout-btn {
+  margin-top: 30px;
+  padding: 10px 20px;
   background-color: #f44336;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 16px;
 }
 
-button:hover {
+.logout-btn:hover {
   background-color: #d32f2f;
 }
 </style> 
