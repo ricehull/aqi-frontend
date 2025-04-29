@@ -1,5 +1,13 @@
-# Vue 3 + TypeScript + Vite
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+配置
+在项目目录src/api/index.ts中配置后端服务的地址和各restful api的终端点
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+启动前端
+后端是用Node自带的web server用于启动
+杀掉前端进程
+# pkill -f "serve -s dist" || true
+启动前端页面服务
+# serve -s dist -l 8080
+使用链接访问：
+http://localhost:8080
+![image](https://github.com/user-attachments/assets/fc8f74dc-5ad0-4250-934a-8be2e250be82)
