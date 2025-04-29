@@ -3,7 +3,6 @@
 在项目目录src/api/index.ts中配置后端服务的地址和各restful api的终端点
 
 启动前端
-后端是用Node自带的web server用于启动
 杀掉前端进程
 # pkill -f "serve -s dist" || true
 启动前端页面服务
